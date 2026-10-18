@@ -36,8 +36,3 @@ Thumbs.db
 .ruff_cache/
 .coverage
 htmlcov/
-
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
