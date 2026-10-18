@@ -5,7 +5,33 @@ services:
       dockerfile: Dockerfile
     container_name: cloud-rescuesync-api
     ports:
-      - "8000:8000"
+      - "8002:8000"
     restart: unless-stopped
     environment:
       - ENVIRONMENT=production
+      - DATABASE_URL=${DATABASE_URL:?Definir DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET:?Definir JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER:-rescuesync-cloud}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-rescuesync-cloud}
+      - JWT_BACKEND_AUDIENCE=${JWT_BACKEND_AUDIENCE:-rescuesync-backend}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: cloud
+      POSTGRES_USER: cloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD}
+    volumes:
+      - cloud_datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloud -d cloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  cloud_datos:
