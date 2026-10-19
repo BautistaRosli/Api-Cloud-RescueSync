@@ -4,7 +4,7 @@ import jwt
 import pytest
 from sqlalchemy import text
 
-from app.configuracion import cargar_configuracion
+from app.config import cargar_configuracion
 
 
 SECRETO = "secreto-exclusivo-de-pruebas-locales-123456"

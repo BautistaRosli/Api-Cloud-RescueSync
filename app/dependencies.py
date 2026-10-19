@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.configuracion import Configuracion
+from app.config import Configuracion
 from app.models import Cuenta
 from app.services.auth_service import autenticar_token, credenciales_invalidas
 
