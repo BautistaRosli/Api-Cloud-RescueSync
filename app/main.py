@@ -9,15 +9,17 @@ from fastapi.responses import RedirectResponse
 from app.database import iniciar_base_datos
 from app.config import cargar_configuracion
 from app.routes import auth, items, ongs, recursos, users, validaciones
+from app.services.bootstrap_service import asegurar_cuenta_rescuesync
 
 
 @asynccontextmanager
 async def ciclo_vida(app: FastAPI):
     app.state.configuracion = cargar_configuracion()
     motor = None
-    if app.state.configuracion is not None:
-        motor, app.state.sesiones = iniciar_base_datos(app.state.configuracion.database_url)
     try:
+        if app.state.configuracion is not None:
+            motor, app.state.sesiones = iniciar_base_datos(app.state.configuracion.database_url)
+            asegurar_cuenta_rescuesync(app.state.sesiones, app.state.configuracion)
         yield
     finally:
         if motor is not None:

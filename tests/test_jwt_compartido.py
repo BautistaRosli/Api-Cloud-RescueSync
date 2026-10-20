@@ -13,20 +13,22 @@ ONG = {"cuit": "30712345678", "razon_social": "ONG de prueba", "email": "ong@exa
 
 
 def registrar(cliente):
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 201
+    respuesta = cliente.post("/auth/registro", json=CREDENCIALES)
+    assert respuesta.status_code == 201
+    return respuesta.json()["id"]
 
 
-def claims_validos():
+def claims_validos(identificador):
     ahora = datetime.now(timezone.utc)
     return {
-        "sub": "1", "usuario": CREDENCIALES["usuario"], "iss": "rescuesync-cloud",
+        "sub": str(identificador), "usuario": CREDENCIALES["usuario"], "iss": "rescuesync-cloud",
         "aud": ["rescuesync-cloud", "rescuesync-backend"],
         "iat": ahora, "exp": ahora + timedelta(hours=1),
     }
 
 
 def test_login_comparte_identidad_firmada_con_ambas_apis(cliente):
-    registrar(cliente)
+    identificador = registrar(cliente)
     respuesta = cliente.post("/auth/login", json=CREDENCIALES)
     assert respuesta.status_code == 200
     for audiencia in ("rescuesync-cloud", "rescuesync-backend"):
@@ -35,7 +37,7 @@ def test_login_comparte_identidad_firmada_con_ambas_apis(cliente):
             issuer="rescuesync-cloud", audience=audiencia,
             options={"require": ["sub", "usuario", "iat", "exp", "iss", "aud"]},
         )
-        assert datos["sub"] == "1"
+        assert datos["sub"] == str(identificador)
         assert datos["usuario"] == CREDENCIALES["usuario"]
         assert datos["aud"] == ["rescuesync-cloud", "rescuesync-backend"]
         assert datos["exp"] - datos["iat"] == respuesta.json()["expires_in"]
@@ -44,8 +46,8 @@ def test_login_comparte_identidad_firmada_con_ambas_apis(cliente):
 
 @pytest.mark.parametrize("campo", ["sub", "usuario", "iat", "exp", "iss", "aud"])
 def test_guardia_exige_claims_incluso_en_tokens_anteriores(cliente, campo):
-    registrar(cliente)
-    datos = claims_validos()
+    identificador = registrar(cliente)
+    datos = claims_validos(identificador)
     datos.pop(campo)
     comprobar_rechazo_sin_efectos(cliente, datos)
 
@@ -63,8 +65,8 @@ def test_guardia_exige_claims_incluso_en_tokens_anteriores(cliente, campo):
     {"iat": datetime.now(timezone.utc) + timedelta(hours=1)},
 ])
 def test_guardia_rechaza_identidad_o_destinatario_incorrectos(cliente, cambios):
-    registrar(cliente)
-    comprobar_rechazo_sin_efectos(cliente, {**claims_validos(), **cambios})
+    identificador = registrar(cliente)
+    comprobar_rechazo_sin_efectos(cliente, {**claims_validos(identificador), **cambios})
 
 
 def comprobar_rechazo_sin_efectos(cliente, datos):
@@ -75,12 +77,12 @@ def comprobar_rechazo_sin_efectos(cliente, datos):
     assert respuesta.json() == {"detail": "Credenciales inválidas"}
     with cliente.app.state.sesiones() as sesion:
         assert sesion.execute(text("SELECT count(*) FROM ongs")).scalar_one() == 0
-        assert sesion.execute(text("SELECT count(*) FROM cuentas")).scalar_one() == 1
+        assert sesion.execute(text("SELECT count(*) FROM cuentas")).scalar_one() == 2
 
 
 def test_guardia_acepta_audiencia_cloud_sin_asignar_roles(cliente):
-    registrar(cliente)
-    datos = {**claims_validos(), "aud": "rescuesync-cloud", "roles": ["administrador"]}
+    identificador = registrar(cliente)
+    datos = {**claims_validos(identificador), "aud": "rescuesync-cloud", "roles": ["administrador"]}
     token = jwt.encode(datos, SECRETO, algorithm="HS256")
     respuesta = cliente.post("/ongs/registro", json=ONG, headers={"Authorization": f"Bearer {token}"})
     assert respuesta.status_code == 201
@@ -92,7 +94,7 @@ def test_configuracion_permite_emisor_y_destinatarios_explicitos(cliente, monkey
     monkeypatch.setenv("JWT_AUDIENCE", "cloud-integracion")
     monkeypatch.setenv("JWT_BACKEND_AUDIENCE", "backend-integracion")
     cliente.app.state.configuracion = cargar_configuracion()
-    registrar(cliente)
+    identificador = registrar(cliente)
     respuesta = cliente.post("/auth/login", json=CREDENCIALES)
     assert respuesta.status_code == 200
     token = respuesta.json()["access_token"]
@@ -100,11 +102,11 @@ def test_configuracion_permite_emisor_y_destinatarios_explicitos(cliente, monkey
         jwt.decode(token, SECRETO, algorithms=["HS256"], issuer="emisor-integracion", audience=audiencia)
     cabeceras = {"Authorization": f"Bearer {token}"}
     assert cliente.post("/ongs/registro", json=ONG, headers=cabeceras).status_code == 201
-    comprobar_rechazo_sin_efectos_configurado(cliente)
+    comprobar_rechazo_sin_efectos_configurado(cliente, identificador)
 
 
-def comprobar_rechazo_sin_efectos_configurado(cliente):
-    token = jwt.encode(claims_validos(), SECRETO, algorithm="HS256")
+def comprobar_rechazo_sin_efectos_configurado(cliente, identificador):
+    token = jwt.encode(claims_validos(identificador), SECRETO, algorithm="HS256")
     respuesta = cliente.post("/ongs/registro", json={**ONG, "cuit": "30712345679"},
                              headers={"Authorization": f"Bearer {token}"})
     assert respuesta.status_code == 401

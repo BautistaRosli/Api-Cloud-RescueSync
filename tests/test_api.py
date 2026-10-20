@@ -22,11 +22,16 @@ def autorizar(cliente):
 def test_registro_publico_persiste_hash_salteado(cliente):
     respuesta = cliente.post("/auth/registro", json=CREDENCIALES)
     assert respuesta.status_code == 201
-    assert respuesta.json() == {"id": 1, "usuario": "integracion"}
+    assert set(respuesta.json()) == {"id", "usuario"}
+    assert isinstance(respuesta.json()["id"], int)
+    assert respuesta.json()["usuario"] == "integracion"
     segunda = {**CREDENCIALES, "usuario": "otra-cuenta"}
     assert cliente.post("/auth/registro", json=segunda).status_code == 201
     with cliente.app.state.sesiones() as sesion:
-        hashes = sesion.execute(text("SELECT password_hash FROM cuentas ORDER BY id")).scalars().all()
+        hashes = sesion.execute(
+            text("SELECT password_hash FROM cuentas WHERE usuario IN (:primera, :segunda) ORDER BY id"),
+            {"primera": CREDENCIALES["usuario"], "segunda": segunda["usuario"]},
+        ).scalars().all()
     assert len(hashes) == 2
     assert hashes[0] != hashes[1]
     assert all(CREDENCIALES["password"] not in valor for valor in hashes)
@@ -39,7 +44,11 @@ def test_login_emite_jwt_y_rechaza_credenciales_invalidas(cliente):
         token, "secreto-exclusivo-de-pruebas-locales-123456", algorithms=["HS256"],
         issuer="rescuesync-cloud", audience="rescuesync-cloud",
     )
-    assert datos["sub"] == "1"
+    with cliente.app.state.sesiones() as sesion:
+        identificador = sesion.execute(
+            text("SELECT id FROM cuentas WHERE usuario = :usuario"), {"usuario": CREDENCIALES["usuario"]},
+        ).scalar_one()
+    assert datos["sub"] == str(identificador)
     assert datos["exp"] > datos["iat"]
     respuesta = cliente.post("/auth/login", json=CREDENCIALES)
     assert set(respuesta.json()) == {"access_token", "token_type", "expires_in"}
@@ -60,7 +69,7 @@ def test_registro_duplicado_rechaza_y_permite_otro_registro(cliente):
     assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 409
     assert cliente.post("/auth/registro", json={**CREDENCIALES, "usuario": "otra"}).status_code == 201
     with cliente.app.state.sesiones() as sesion:
-        assert sesion.execute(text("SELECT count(*) FROM cuentas")).scalar_one() == 2
+        assert sesion.execute(text("SELECT count(*) FROM cuentas")).scalar_one() == 3
 
 
 @pytest.mark.parametrize("ruta", ["/auth/registro", "/auth/login"])
@@ -133,8 +142,13 @@ def test_guardia_jwt_ong_no_persiste_sin_token_valido(cliente, tipo):
     elif tipo == "invalido":
         cabeceras = {"Authorization": "Bearer invalido"}
     elif tipo in {"expirado", "algoritmo"}:
+        datos = jwt.decode(
+            cabeceras["Authorization"].removeprefix("Bearer "),
+            "secreto-exclusivo-de-pruebas-locales-123456", algorithms=["HS256"],
+            issuer="rescuesync-cloud", audience="rescuesync-cloud",
+        )
         token = jwt.encode(
-            {"sub": "1", "usuario": CREDENCIALES["usuario"], "iss": "rescuesync-cloud",
+            {"sub": datos["sub"], "usuario": CREDENCIALES["usuario"], "iss": "rescuesync-cloud",
              "aud": ["rescuesync-cloud", "rescuesync-backend"], "iat": ahora - timedelta(hours=2),
              "exp": ahora - timedelta(hours=1) if tipo == "expirado" else ahora + timedelta(hours=1)},
             "secreto-exclusivo-de-pruebas-locales-123456",
