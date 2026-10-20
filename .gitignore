@@ -36,3 +36,7 @@ Thumbs.db
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Other
+test/
+odd/
