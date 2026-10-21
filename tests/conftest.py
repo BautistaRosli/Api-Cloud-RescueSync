@@ -8,9 +8,9 @@ from app.services.auth_service import generar_hash
 
 @pytest.fixture(scope="session")
 def cuenta_semilla():
-    password = "clave-exclusiva-bootstrap-ficticia"
+    password = "clave-de-prueba"
     return {
-        "usuario": "rescuesync-exclusivo-prueba",
+        "usuario": "integracion",
         "password": password,
         "password_hash": generar_hash(password),
     }
@@ -21,7 +21,7 @@ def cliente(tmp_path, monkeypatch, cuenta_semilla):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'cloud.db'}")
     monkeypatch.setenv("JWT_SECRET", "secreto-exclusivo-de-pruebas-locales-123456")
     monkeypatch.setenv("USUARIO_RESCUESYNC", cuenta_semilla["usuario"])
-    monkeypatch.setenv("PASSWORD_HASH_RESCUESYNC", cuenta_semilla["password_hash"])
+    monkeypatch.setenv("PASSWORD_RESCUESYNC", cuenta_semilla["password"])
     for variable in ("JWT_ISSUER", "JWT_AUDIENCE", "JWT_BACKEND_AUDIENCE"):
         monkeypatch.delenv(variable, raising=False)
     users.fake_db.clear()

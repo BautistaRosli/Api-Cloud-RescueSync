@@ -6,11 +6,10 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import HTTPException
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import Configuracion
-from app.dto.auth import CuentaCreada, TokenAcceso
+from app.dto.auth import TokenAcceso
 from app.models import Cuenta
 from app.schemas.auth import Credenciales
 
@@ -33,17 +32,6 @@ def verificar_password(password: str, password_hash: str) -> bool:
 
 def credenciales_invalidas() -> HTTPException:
     return HTTPException(status_code=401, detail="Credenciales inválidas", headers={"WWW-Authenticate": "Bearer"})
-
-
-def registrar_cuenta(db: Session, datos: Credenciales) -> CuentaCreada:
-    cuenta = Cuenta(usuario=datos.usuario, password_hash=generar_hash(datos.password.get_secret_value()))
-    db.add(cuenta)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="El usuario ya está registrado") from None
-    return CuentaCreada.model_validate(cuenta)
 
 
 def iniciar_sesion(db: Session, datos: Credenciales, configuracion: Configuracion) -> TokenAcceso:

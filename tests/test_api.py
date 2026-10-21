@@ -13,28 +13,23 @@ ONG = {"cuit": "30712345678", "razon_social": "ONG de prueba", "email": "contact
 
 
 def autorizar(cliente):
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 201
     respuesta = cliente.post("/auth/login", json=CREDENCIALES)
     assert respuesta.status_code == 200
     return {"Authorization": f"Bearer {respuesta.json()['access_token']}"}
 
 
-def test_registro_publico_persiste_hash_salteado(cliente):
-    respuesta = cliente.post("/auth/registro", json=CREDENCIALES)
-    assert respuesta.status_code == 201
-    assert set(respuesta.json()) == {"id", "usuario"}
-    assert isinstance(respuesta.json()["id"], int)
-    assert respuesta.json()["usuario"] == "integracion"
-    segunda = {**CREDENCIALES, "usuario": "otra-cuenta"}
-    assert cliente.post("/auth/registro", json=segunda).status_code == 201
+@pytest.mark.parametrize("metodo", ["GET", "POST"])
+@pytest.mark.parametrize("autenticado", [False, True])
+def test_registro_ausente_no_modifica_cuentas(cliente, metodo, autenticado):
+    cabeceras = autorizar(cliente) if autenticado else {}
     with cliente.app.state.sesiones() as sesion:
-        hashes = sesion.execute(
-            text("SELECT password_hash FROM cuentas WHERE usuario IN (:primera, :segunda) ORDER BY id"),
-            {"primera": CREDENCIALES["usuario"], "segunda": segunda["usuario"]},
-        ).scalars().all()
-    assert len(hashes) == 2
-    assert hashes[0] != hashes[1]
-    assert all(CREDENCIALES["password"] not in valor for valor in hashes)
+        estado_antes = tuple(sesion.connection().connection.driver_connection.iterdump())
+    respuesta = cliente.request(metodo, "/auth/registro",
+                                json={**CREDENCIALES, "usuario": "cuenta-no-autorizada"}, headers=cabeceras)
+    assert respuesta.status_code == 404
+    assert "/auth/registro" not in cliente.get("/openapi.json").json()["paths"]
+    with cliente.app.state.sesiones() as sesion:
+        assert tuple(sesion.connection().connection.driver_connection.iterdump()) == estado_antes
 
 
 def test_login_emite_jwt_y_rechaza_credenciales_invalidas(cliente):
@@ -64,15 +59,6 @@ def test_login_emite_jwt_y_rechaza_credenciales_invalidas(cliente):
         assert "password" not in respuesta.text
 
 
-def test_registro_duplicado_rechaza_y_permite_otro_registro(cliente):
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 201
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 409
-    assert cliente.post("/auth/registro", json={**CREDENCIALES, "usuario": "otra"}).status_code == 201
-    with cliente.app.state.sesiones() as sesion:
-        assert sesion.execute(text("SELECT count(*) FROM cuentas")).scalar_one() == 3
-
-
-@pytest.mark.parametrize("ruta", ["/auth/registro", "/auth/login"])
 @pytest.mark.parametrize("datos", [
     {"usuario": "", "password": "secreto-no-reflejar"},
     {"usuario": "  ", "password": "secreto-no-reflejar"},
@@ -84,8 +70,8 @@ def test_registro_duplicado_rechaza_y_permite_otro_registro(cliente):
     {"usuario": "integracion", "password": {"secreto-no-reflejar": "valor"}},
     {"usuario": "integracion", "password": "secreto-no-reflejar", "extra": "secreto-no-reflejar"},
 ])
-def test_validacion_auth_no_expone_credenciales(cliente, ruta, datos):
-    respuesta = cliente.post(ruta, json=datos)
+def test_validacion_auth_no_expone_credenciales(cliente, datos):
+    respuesta = cliente.post("/auth/login", json=datos)
     assert respuesta.status_code == 422
     assert "secreto-no-reflejar" not in respuesta.text
     for error in respuesta.json()["detail"]:
@@ -194,6 +180,6 @@ def test_documentacion_y_salud_sin_configuracion(monkeypatch):
         assert cliente.get("/docs").status_code == 200
         assert cliente.get("/openapi.json").status_code == 200
         assert cliente.get("/health").json() == {"status": "ok"}
-        assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 503
+        assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 404
         assert cliente.post("/auth/login", json=CREDENCIALES).status_code == 503
         assert cliente.post("/ongs/registro", json=ONG).status_code == 503

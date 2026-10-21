@@ -11,7 +11,7 @@ class Configuracion:
     jwt_audience: str = "rescuesync-cloud"
     jwt_backend_audience: str = "rescuesync-backend"
     usuario_rescuesync: str = ""
-    password_hash_rescuesync: str = field(default="", repr=False)
+    password_rescuesync: str = field(default="", repr=False)
 
 
 def cargar_configuracion() -> Configuracion | None:
@@ -20,9 +20,9 @@ def cargar_configuracion() -> Configuracion | None:
     if not database_url.strip() or not jwt_secret.strip():
         return None
     usuario_rescuesync = os.getenv("USUARIO_RESCUESYNC", "")
-    password_hash_rescuesync = os.getenv("PASSWORD_HASH_RESCUESYNC", "")
-    if not usuario_rescuesync.strip() or not password_hash_rescuesync.strip():
-        raise RuntimeError("Definir USUARIO_RESCUESYNC y PASSWORD_HASH_RESCUESYNC")
+    password_rescuesync = os.getenv("PASSWORD_RESCUESYNC", "")
+    if not usuario_rescuesync.strip() or not password_rescuesync.strip():
+        raise RuntimeError("Definir USUARIO_RESCUESYNC y PASSWORD_RESCUESYNC")
     return Configuracion(
         database_url=database_url,
         jwt_secret=jwt_secret,
@@ -30,5 +30,5 @@ def cargar_configuracion() -> Configuracion | None:
         jwt_audience=os.getenv("JWT_AUDIENCE", "rescuesync-cloud"),
         jwt_backend_audience=os.getenv("JWT_BACKEND_AUDIENCE", "rescuesync-backend"),
         usuario_rescuesync=usuario_rescuesync,
-        password_hash_rescuesync=password_hash_rescuesync,
+        password_rescuesync=password_rescuesync,
     )

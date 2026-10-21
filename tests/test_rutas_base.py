@@ -10,7 +10,7 @@ RUTAS = [
     ("POST", "/validaciones/evaluar-ofertas"),
 ]
 SECRETO = "secreto-exclusivo-de-pruebas-locales-123456"
-CREDENCIALES = {"usuario": "persona@example.org", "password": "clave-de-prueba"}
+CREDENCIALES = {"usuario": "integracion", "password": "clave-de-prueba"}
 
 
 def instantanea_base(cliente):
@@ -21,7 +21,6 @@ def instantanea_base(cliente):
 
 @pytest.mark.parametrize("metodo,ruta", RUTAS)
 def test_ruta_base_exige_token_valido_sin_modificar_datos(cliente, metodo, ruta):
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 201
     respuesta_login = cliente.post("/auth/login", json=CREDENCIALES)
     assert respuesta_login.status_code == 200
     token = respuesta_login.json()["access_token"]

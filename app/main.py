@@ -54,7 +54,7 @@ app.include_router(validaciones.router, prefix="/validaciones", tags=["validacio
 
 @app.exception_handler(RequestValidationError)
 async def validacion_sin_credenciales(request: Request, exc: RequestValidationError):
-    if request.url.path.rstrip("/") in {"/auth/registro", "/auth/login"}:
+    if request.url.path.rstrip("/") == "/auth/login":
         errores = [
             {"type": error["type"], "loc": error["loc"], "msg": "Credenciales inválidas"}
             for error in exc.errors()
