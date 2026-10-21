@@ -6,6 +6,8 @@ import pytest
 
 RUTAS = [
     ("POST", "/recursos/bloquear"),
+]
+RUTAS_PROTEGIDAS = RUTAS + [
     ("GET", "/recursos/disponibilidad"),
     ("POST", "/validaciones/evaluar-ofertas"),
 ]
@@ -30,6 +32,14 @@ def test_ruta_base_exige_token_valido_sin_modificar_datos(cliente, metodo, ruta)
     assert respuesta.status_code == 200
     assert respuesta.json() == "Pendiente de implementación"
     assert instantanea_base(cliente) == estado_inicial
+
+
+@pytest.mark.parametrize("metodo,ruta", RUTAS_PROTEGIDAS)
+def test_ruta_rechaza_token_invalido_sin_modificar_datos(cliente, metodo, ruta):
+    respuesta_login = cliente.post("/auth/login", json=CREDENCIALES)
+    assert respuesta_login.status_code == 200
+    token = respuesta_login.json()["access_token"]
+    estado_inicial = instantanea_base(cliente)
 
     datos = jwt.decode(
         token, SECRETO, algorithms=["HS256"],
