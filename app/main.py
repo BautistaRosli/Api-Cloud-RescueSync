@@ -11,7 +11,6 @@ from app.config import cargar_configuracion
 from app.routes import auth, items, ongs, recursos, users, validaciones
 from app.services.bootstrap_service import asegurar_cuenta_rescuesync
 
-
 @asynccontextmanager
 async def ciclo_vida(app: FastAPI):
     app.state.configuracion = cargar_configuracion()
@@ -44,9 +43,8 @@ app = FastAPI(
     },
 )
 
-app.include_router(users.router, prefix="/users", tags=["users"])
-app.include_router(items.router, prefix="/items", tags=["items"])
 app.include_router(auth.router, prefix="/auth", tags=["autenticación"])
+app.include_router(items.router, prefix="/items", tags=["items"])
 app.include_router(ongs.router, prefix="/ongs", tags=["ONG"])
 app.include_router(recursos.router, prefix="/recursos", tags=["recursos"])
 app.include_router(validaciones.router, prefix="/validaciones", tags=["validaciones"])
