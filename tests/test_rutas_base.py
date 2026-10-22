@@ -4,15 +4,17 @@ import jwt
 import pytest
 
 
-RUTAS = [
+RUTAS_PROTEGIDAS = [
     ("POST", "/recursos/bloquear"),
-]
-RUTAS_PROTEGIDAS = RUTAS + [
     ("GET", "/recursos/disponibilidad"),
     ("POST", "/validaciones/evaluar-ofertas"),
 ]
 SECRETO = "secreto-exclusivo-de-pruebas-locales-123456"
 CREDENCIALES = {"usuario": "integracion", "password": "clave-de-prueba"}
+CUERPO_BLOQUEO = {
+    "emergencia_id": 1,
+    "ongs": [{"ong_id": 1, "items": [{"item_id": 1, "cantidad": 1}]}],
+}
 
 
 def instantanea_base(cliente):
@@ -21,16 +23,14 @@ def instantanea_base(cliente):
         return tuple(conexion.iterdump())
 
 
-@pytest.mark.parametrize("metodo,ruta", RUTAS)
-def test_ruta_base_exige_token_valido_sin_modificar_datos(cliente, metodo, ruta):
+def test_disponibilidad_no_modifica_datos(cliente):
     respuesta_login = cliente.post("/auth/login", json=CREDENCIALES)
     assert respuesta_login.status_code == 200
     token = respuesta_login.json()["access_token"]
     estado_inicial = instantanea_base(cliente)
 
-    respuesta = cliente.request(metodo, ruta, headers={"Authorization": f"Bearer {token}"})
+    respuesta = cliente.get("/recursos/disponibilidad", headers={"Authorization": f"Bearer {token}"})
     assert respuesta.status_code == 200
-    assert respuesta.json() == "Pendiente de implementación"
     assert instantanea_base(cliente) == estado_inicial
 
 
@@ -40,6 +40,7 @@ def test_ruta_rechaza_token_invalido_sin_modificar_datos(cliente, metodo, ruta):
     assert respuesta_login.status_code == 200
     token = respuesta_login.json()["access_token"]
     estado_inicial = instantanea_base(cliente)
+    cuerpo = CUERPO_BLOQUEO if ruta == "/recursos/bloquear" else None
 
     datos = jwt.decode(
         token, SECRETO, algorithms=["HS256"],
@@ -59,21 +60,26 @@ def test_ruta_rechaza_token_invalido_sin_modificar_datos(cliente, metodo, ruta):
         {"Authorization": f"Bearer {invalido}"} for invalido in tokens_invalidos
     ]
     for cabeceras in cabeceras_invalidas:
-        rechazo = cliente.request(metodo, ruta, headers=cabeceras)
+        rechazo = cliente.request(metodo, ruta, headers=cabeceras, json=cuerpo)
         assert rechazo.status_code == 401
         assert rechazo.headers["www-authenticate"] == "Bearer"
         assert rechazo.json() == {"detail": "Credenciales inválidas"}
         assert instantanea_base(cliente) == estado_inicial
 
 
-@pytest.mark.parametrize("metodo,ruta", RUTAS)
-def test_openapi_declara_bearer_sin_cuerpo_ni_parametros(cliente, metodo, ruta):
+def test_openapi_declara_bearer_en_rutas_protegidas(cliente):
     esquema = cliente.get("/openapi.json").json()
-    operacion = esquema["paths"][ruta][metodo.lower()]
-    assert operacion["security"] == [{"HTTPBearer": []}]
-    assert "requestBody" not in operacion
-    assert not operacion.get("parameters")
-    assert operacion["responses"]["200"]["content"]["application/json"]["schema"]["type"] == "string"
+    for metodo, ruta in RUTAS_PROTEGIDAS:
+        assert esquema["paths"][ruta][metodo.lower()]["security"] == [{"HTTPBearer": []}]
     assert esquema["components"]["securitySchemes"]["HTTPBearer"] == {
         "type": "http", "scheme": "bearer",
     }
+
+
+def test_openapi_bloquear_declara_cuerpo_y_respuesta(cliente):
+    esquema = cliente.get("/openapi.json").json()
+    operacion = esquema["paths"]["/recursos/bloquear"]["post"]
+    assert "requestBody" in operacion
+    assert operacion["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/RespuestaBloqueo"
+    )

@@ -1,4 +1,34 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
+
+
+class BloqueoRealizado(BaseModel):
+    ong_id: int
+    item_id: int
+    cantidad: int
+    estado: Literal["BLOQUEADO"] = "BLOQUEADO"
+
+
+class RespuestaBloqueo(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "emergencia_id": 12,
+                "lote_id": 3,
+                "total_bloqueado": 22,
+                "bloqueados": [
+                    {"ong_id": 1, "item_id": 101, "cantidad": 20, "estado": "BLOQUEADO"},
+                    {"ong_id": 3, "item_id": 101, "cantidad": 2, "estado": "BLOQUEADO"},
+                ],
+            }
+        }
+    )
+
+    emergencia_id: int
+    lote_id: int | None = None
+    total_bloqueado: int
+    bloqueados: list[BloqueoRealizado]
 
 
 class DisponibilidadTipo(BaseModel):
