@@ -33,12 +33,12 @@ class SolicitudBloqueo(BaseModel):
                 "emergencia_id": 12,
                 "lote_id": 3,
                 "ongs": [
-                    {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 20}]},
+                    {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 2}]},
                     {
                         "ong_id": 3,
                         "items": [
-                            {"item_id": 101, "cantidad": 2},
-                            {"item_id": 105, "cantidad": 1},
+                            {"item_id": 101, "cantidad": 3},
+                            {"item_id": 104, "cantidad": 10},
                         ],
                     },
                 ],

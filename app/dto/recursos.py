@@ -16,10 +16,11 @@ class RespuestaBloqueo(BaseModel):
             "example": {
                 "emergencia_id": 12,
                 "lote_id": 3,
-                "total_bloqueado": 22,
+                "total_bloqueado": 15,
                 "bloqueados": [
-                    {"ong_id": 1, "item_id": 101, "cantidad": 20, "estado": "BLOQUEADO"},
-                    {"ong_id": 3, "item_id": 101, "cantidad": 2, "estado": "BLOQUEADO"},
+                    {"ong_id": 1, "item_id": 101, "cantidad": 2, "estado": "BLOQUEADO"},
+                    {"ong_id": 3, "item_id": 101, "cantidad": 3, "estado": "BLOQUEADO"},
+                    {"ong_id": 3, "item_id": 104, "cantidad": 10, "estado": "BLOQUEADO"},
                 ],
             }
         }

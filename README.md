@@ -37,6 +37,17 @@ Una vez iniciada la API, accedé al Swagger en:
 
 También está disponible ReDoc en `/redoc`.
 
+### Probar `POST /recursos/bloquear` desde Swagger
+
+1. Abrir `/docs` y ejecutar `POST /auth/login` con el usuario y contraseña de
+   `USUARIO_RESCUESYNC` / `PASSWORD_RESCUESYNC`.
+2. Copiar el `access_token` de la respuesta.
+3. Hacer clic en **Authorize**, pegar el token y confirmar.
+4. Abrir `POST /recursos/bloquear`, elegir un ejemplo en **Examples** y ejecutar **Try it out**.
+
+Swagger mantiene el token entre recargas (`persistAuthorization`) y deja los endpoints con
+**Try it out** habilitado por defecto.
+
 ## Instalación de dependencias
 
 ```bash
@@ -69,8 +80,8 @@ ALTER TABLE items ADD COLUMN unidad VARCHAR NOT NULL DEFAULT 'unidades';
     "emergencia_id": 12,
     "lote_id": 3,
     "ongs": [
-      {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 20}]},
-      {"ong_id": 3, "items": [{"item_id": 101, "cantidad": 2}, {"item_id": 105, "cantidad": 1}]}
+      {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 2}]},
+      {"ong_id": 3, "items": [{"item_id": 101, "cantidad": 3}, {"item_id": 104, "cantidad": 10}]}
     ]
   }
   ```

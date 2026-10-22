@@ -16,19 +16,28 @@ EJEMPLOS_BLOQUEO = {
             "emergencia_id": 12,
             "lote_id": 3,
             "ongs": [
-                {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 20}]},
+                {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 2}]},
             ],
         },
     },
     "varias_ongs": {
-        "summary": "Consorcio con varios items",
-        "description": "Cada ONG puede tener uno o más items para bloquear.",
+        "summary": "Consorcio con varios items (datos del seed)",
+        "description": (
+            "Cruz Roja (1) bloquea Paramédicos y Médicos Sin Fronteras (3) bloquea "
+            "Paramédicos y Agua potable. Se puede ejecutar varias veces."
+        ),
         "value": {
             "emergencia_id": 12,
             "lote_id": 3,
             "ongs": [
-                {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 20}]},
-                {"ong_id": 3, "items": [{"item_id": 101, "cantidad": 30}]},
+                {"ong_id": 1, "items": [{"item_id": 101, "cantidad": 2}]},
+                {
+                    "ong_id": 3,
+                    "items": [
+                        {"item_id": 101, "cantidad": 3},
+                        {"item_id": 104, "cantidad": 10},
+                    ],
+                },
             ],
         },
     },
@@ -51,9 +60,34 @@ EJEMPLOS_BLOQUEO = {
         "asignado o no alcanza el stock, se rechaza el request completo y no se bloquea nada."
     ),
     responses={
-        200: {"description": "Recursos bloqueados"},
-        404: {"description": "ONG o item inexistente"},
-        409: {"description": "ONG inactiva, item no asignado o stock insuficiente"},
+        200: {
+            "description": "Recursos bloqueados",
+            "content": {"application/json": {"example": {
+                "emergencia_id": 12,
+                "lote_id": 3,
+                "total_bloqueado": 15,
+                "bloqueados": [
+                    {"ong_id": 1, "item_id": 101, "cantidad": 2, "estado": "BLOQUEADO"},
+                    {"ong_id": 3, "item_id": 101, "cantidad": 3, "estado": "BLOQUEADO"},
+                    {"ong_id": 3, "item_id": 104, "cantidad": 10, "estado": "BLOQUEADO"},
+                ],
+            }}},
+        },
+        401: {
+            "description": "Token ausente o inválido",
+            "content": {"application/json": {"example": {"detail": "Credenciales inválidas"}}},
+        },
+        404: {
+            "description": "ONG o item inexistente",
+            "content": {"application/json": {"example": {"detail": "La ONG 999 no existe"}}},
+        },
+        409: {
+            "description": "ONG inactiva, item no asignado o stock insuficiente",
+            "content": {"application/json": {"example": {
+                "detail": "La ONG 3 no tiene stock suficiente del item 101: solicitado 30, disponible 25",
+            }}},
+        },
+        422: {"description": "Request mal formado"},
     },
 )
 def bloquear(

@@ -27,23 +27,47 @@ async def ciclo_vida(app: FastAPI):
 app = FastAPI(
     lifespan=ciclo_vida,
     title="Cloud RescueSync API",
-    description="API REST para Cloud RescueSync",
+    description=(
+        "API REST para Cloud RescueSync.\n\n"
+        "**Para probar desde Swagger:**\n"
+        "1. Ejecutá `POST /auth/login` con el usuario y la contraseña configurados en "
+        "`USUARIO_RESCUESYNC` / `PASSWORD_RESCUESYNC`.\n"
+        "2. Copiá el `access_token` de la respuesta.\n"
+        "3. Hacé clic en **Authorize** y pegá el token.\n"
+        "4. Probá `POST /recursos/bloquear` con alguno de los ejemplos del selector **Examples**."
+    ),
     version="1.0.0",
     openapi_tags=[
-        {"name": "recursos", "description": "Inventario de recursos de las ONGs: disponibilidad global y bloqueo."},
-        {"name": "validaciones", "description": "Evaluación de ofertas de ONGs invocada por Bonita (solo lectura)."},
+        {
+            "name": "autenticación",
+            "description": "Login con usuario/contraseña para obtener el JWT que se usa en **Authorize**.",
+        },
+        {
+            "name": "recursos",
+            "description": "Inventario de recursos de las ONGs: disponibilidad global y bloqueo.",
+        },
+        {
+            "name": "validaciones",
+            "description": "Evaluación de ofertas de ONGs invocada por Bonita (solo lectura).",
+        },
+        {"name": "ONG", "description": "Registro y consulta de ONGs."},
+        {"name": "items", "description": "Catálogo de tipos de recurso e inventario por ONG."},
     ],
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
     swagger_ui_parameters={
-        "docExpansion": "none",
+        "docExpansion": "list",
         "persistAuthorization": True,
         "displayRequestDuration": True,
         "operationsSorter": "method",
         "tagsSorter": "alpha",
         "deepLinking": True,
         "filter": True,
+        "tryItOutEnabled": True,
+        "requestSnippetsEnabled": True,
+        "defaultModelsExpandDepth": 1,
+        "defaultModelRendering": "example",
     },
 )
 
