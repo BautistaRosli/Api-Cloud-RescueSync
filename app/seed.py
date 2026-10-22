@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models import Ong, Item, ong_items
+from app.models import CompromisoRecurso, Ong, Item, ong_items
 from app.config import Configuracion
 
 
@@ -148,6 +148,43 @@ ITEMS_SEED = [
 ]
 
 
+# Tipos de recurso con unidad, con inventario fijo para probar disponibilidad y validación de ofertas
+TIPOS_RECURSO_SEED = [
+    {"nombre": "Paramédicos", "descripcion": "Personal paramédico certificado para atención prehospitalaria", "unidad": "personas"},
+    {"nombre": "Bomberos", "descripcion": "Personal de bomberos para rescate y control de incendios", "unidad": "personas"},
+    {"nombre": "Raciones de alimento", "descripcion": "Raciones individuales de alimento listas para consumir", "unidad": "raciones"},
+    {"nombre": "Agua potable", "descripcion": "Agua potable envasada para distribución", "unidad": "litros"},
+    {"nombre": "Camiones", "descripcion": "Camiones de carga para logística de ayuda", "unidad": "unidades"},
+    {"nombre": "Frazadas", "descripcion": "Frazadas térmicas para evacuados", "unidad": "unidades"},
+]
+
+# ONG dada de baja: su inventario no cuenta en disponibilidad ni en validación
+ONG_INACTIVA_SEED = {
+    "cuit": "30-67890123-4",
+    "razon_social": "Asociación Rescate Sur (inactiva)",
+    "email": "contacto@rescatesur.org",
+    "activa": False,
+}
+
+# (índice de ONG en ONGS_SEED o "inactiva", nombre del tipo, cantidad)
+INVENTARIO_TIPOS_SEED = [
+    (0, "Paramédicos", 40), (0, "Raciones de alimento", 2000), (0, "Frazadas", 500),
+    (1, "Bomberos", 60), (1, "Camiones", 8), (1, "Paramédicos", 10),
+    (2, "Paramédicos", 50), (2, "Agua potable", 5000),
+    (3, "Camiones", 15), (3, "Raciones de alimento", 3000), (3, "Agua potable", 10000),
+    (4, "Paramédicos", 20), (4, "Frazadas", 800), (4, "Raciones de alimento", 1000),
+    ("inactiva", "Paramédicos", 30), ("inactiva", "Camiones", 5),
+]
+
+# (índice de ONG, nombre del tipo, emergencia_id, lote_id, cantidad, estado)
+COMPROMISOS_SEED = [
+    (0, "Paramédicos", 1, 1, 15, "COMPROMETIDO"),
+    (2, "Paramédicos", 1, 1, 25, "BLOQUEADO"),
+    (3, "Camiones", 1, 2, 5, "COMPROMETIDO"),
+    (0, "Raciones de alimento", 2, 3, 500, "LIBERADO"),
+]
+
+
 def poblar_base_datos(db: Session) -> dict:
     """
     Pobla la base de datos con datos semilla si está vacía.
@@ -156,7 +193,9 @@ def poblar_base_datos(db: Session) -> dict:
     resultado = {
         "ongs_creadas": 0,
         "items_creados": 0,
-        "inventario_asignado": 0
+        "inventario_asignado": 0,
+        "tipos_recurso_creados": 0,
+        "compromisos_creados": 0,
     }
 
     # Verificar si ya hay datos
@@ -212,8 +251,33 @@ def poblar_base_datos(db: Session) -> dict:
             )
             resultado["inventario_asignado"] += 1
 
+    poblar_tipos_recurso(db, ongs_creadas, resultado)
     db.commit()
     return resultado
+
+
+def poblar_tipos_recurso(db: Session, ongs_creadas: list[Ong], resultado: dict) -> None:
+    ong_inactiva = Ong(**ONG_INACTIVA_SEED)
+    db.add(ong_inactiva)
+    tipos = {datos["nombre"]: Item(**datos) for datos in TIPOS_RECURSO_SEED}
+    db.add_all(tipos.values())
+    db.flush()
+    resultado["ongs_creadas"] += 1
+    resultado["tipos_recurso_creados"] = len(tipos)
+
+    def ong_de(indice) -> Ong:
+        return ong_inactiva if indice == "inactiva" else ongs_creadas[indice]
+
+    for indice, nombre, cantidad in INVENTARIO_TIPOS_SEED:
+        db.execute(ong_items.insert().values(ong_id=ong_de(indice).id, item_id=tipos[nombre].id, cantidad=cantidad))
+        resultado["inventario_asignado"] += 1
+
+    for indice, nombre, emergencia_id, lote_id, cantidad, estado in COMPROMISOS_SEED:
+        db.add(CompromisoRecurso(
+            ong_id=ong_de(indice).id, item_id=tipos[nombre].id, emergencia_id=emergencia_id,
+            lote_id=lote_id, cantidad=cantidad, estado=estado,
+        ))
+        resultado["compromisos_creados"] += 1
 
 
 def ejecutar_seed(config: Configuracion) -> dict:

@@ -29,6 +29,10 @@ app = FastAPI(
     title="Cloud RescueSync API",
     description="API REST para Cloud RescueSync",
     version="1.0.0",
+    openapi_tags=[
+        {"name": "recursos", "description": "Inventario de recursos de las ONGs: disponibilidad global y bloqueo."},
+        {"name": "validaciones", "description": "Evaluación de ofertas de ONGs invocada por Bonita (solo lectura)."},
+    ],
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",

@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routes import items, users
+from app.routes import users
 from app.services.auth_service import generar_hash
 
 
@@ -26,7 +26,5 @@ def cliente(tmp_path, monkeypatch, cuenta_semilla):
         monkeypatch.delenv(variable, raising=False)
     users.fake_db.clear()
     users.counter = 0
-    items.fake_db.clear()
-    items.counter = 0
     with TestClient(app) as cliente:
         yield cliente

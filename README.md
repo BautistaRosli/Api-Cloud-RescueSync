@@ -42,3 +42,23 @@ También está disponible ReDoc en `/redoc`.
 ```bash
 pip install -r requirements.txt
 ```
+
+## Cambios de esquema sin migraciones
+
+Las tablas se crean con `Base.metadata.create_all` al iniciar, que **no agrega columnas a tablas existentes**.
+Si tu base ya tenía datos antes de agregar `ongs.activa`, `items.unidad` y la tabla `compromisos_recurso`,
+recreá el volumen (`docker compose down -v && docker compose up --build`) o aplicá a mano:
+
+```sql
+ALTER TABLE ongs ADD COLUMN activa BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE items ADD COLUMN unidad VARCHAR NOT NULL DEFAULT 'unidades';
+```
+
+## Recursos y validación de ofertas
+
+- `GET /recursos/disponibilidad`: total, comprometido (BLOQUEADO/COMPROMETIDO) y disponible por tipo de recurso
+  (`items`), solo de ONGs activas. Filtros opcionales `tipo_recurso_id` y `ong_id`.
+- `POST /validaciones/evaluar-ofertas`: lo llama Bonita con las ofertas consolidadas; devuelve un perfil por oferta
+  (nivel de habilitación, cobertura, roles PRINCIPAL/APOYO_SECUNDARIO y observaciones). No guarda ni bloquea nada.
+- El seed agrega los tipos Paramédicos, Bomberos, Raciones de alimento, Agua potable, Camiones y Frazadas
+  (ids 101 a 106), una ONG inactiva (id 6) y algunos compromisos para probar desde `/docs`.
