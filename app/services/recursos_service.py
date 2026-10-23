@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select, tuple_
 from sqlalchemy.orm import Session
 
-from app.dto.recursos import BloqueoRealizado, DisponibilidadTipo, RespuestaBloqueo
+from app.dto.recursos import BloqueoRealizado, DisponibilidadResponse, DisponibilidadTipo, RespuestaBloqueo
 from app.models import ESTADOS_COMPROMETIDOS, CompromisoRecurso, Item, Ong, ong_items
 from app.schemas.recursos import SolicitudBloqueo
 
@@ -34,10 +34,13 @@ def _comprometidos(db: Session, tipo_recurso_id: int | None, ong_id: int | None)
 
 def calcular_disponibilidad(
     db: Session, tipo_recurso_id: int | None = None, ong_id: int | None = None
-) -> list[DisponibilidadTipo]:
+) -> DisponibilidadResponse:
     totales = _totales(db, tipo_recurso_id, ong_id)
     if not totales:
-        return []
+        return DisponibilidadResponse(
+            disponibles=[],
+            mensaje="No hay disponibilidad para los filtros aplicados"
+        )
     comprometidos = _comprometidos(db, tipo_recurso_id, ong_id)
     tipos = db.scalars(select(Item).where(Item.id.in_(totales)).order_by(Item.id)).all()
     resultado = []
@@ -48,7 +51,7 @@ def calcular_disponibilidad(
             tipo_recurso_id=tipo.id, nombre=tipo.nombre, unidad=tipo.unidad,
             total=total, comprometido=comprometido, disponible=max(total - comprometido, 0),
         ))
-    return resultado
+    return DisponibilidadResponse(disponibles=resultado)
 
 
 def _comprometidos_por_par(

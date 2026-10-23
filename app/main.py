@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from app.database import iniciar_base_datos
 from app.config import cargar_configuracion
-from app.routes import auth, items, ongs, recursos, users, validaciones
+from app.routes import auth, emergencias, items, ongs, recursos, users, validaciones
 from app.services.bootstrap_service import asegurar_cuenta_rescuesync
 
 @asynccontextmanager
@@ -76,6 +76,7 @@ app.include_router(items.router, prefix="/items", tags=["items"])
 app.include_router(ongs.router, prefix="/ongs", tags=["ONG"])
 app.include_router(recursos.router, prefix="/recursos", tags=["recursos"])
 app.include_router(validaciones.router, prefix="/validaciones", tags=["validaciones"])
+app.include_router(emergencias.router, prefix="/emergencias", tags=["emergencias"])
 
 
 @app.exception_handler(RequestValidationError)

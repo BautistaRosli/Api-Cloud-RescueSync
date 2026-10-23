@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -49,3 +49,10 @@ class DisponibilidadTipo(BaseModel):
     total: int
     comprometido: int
     disponible: int
+
+
+class DisponibilidadResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    disponibles: list[DisponibilidadTipo]
+    mensaje: Optional[str] = None
