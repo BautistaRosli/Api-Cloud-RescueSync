@@ -13,23 +13,23 @@ ONG = {"cuit": "30712345678", "razon_social": "ONG de prueba", "email": "contact
 
 
 def autorizar(cliente):
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 201
     respuesta = cliente.post("/auth/login", json=CREDENCIALES)
     assert respuesta.status_code == 200
     return {"Authorization": f"Bearer {respuesta.json()['access_token']}"}
 
 
-def test_registro_publico_persiste_hash_salteado(cliente):
-    respuesta = cliente.post("/auth/registro", json=CREDENCIALES)
-    assert respuesta.status_code == 201
-    assert respuesta.json() == {"id": 1, "usuario": "integracion"}
-    segunda = {**CREDENCIALES, "usuario": "otra-cuenta"}
-    assert cliente.post("/auth/registro", json=segunda).status_code == 201
+@pytest.mark.parametrize("metodo", ["GET", "POST"])
+@pytest.mark.parametrize("autenticado", [False, True])
+def test_registro_ausente_no_modifica_cuentas(cliente, metodo, autenticado):
+    cabeceras = autorizar(cliente) if autenticado else {}
     with cliente.app.state.sesiones() as sesion:
-        hashes = sesion.execute(text("SELECT password_hash FROM cuentas ORDER BY id")).scalars().all()
-    assert len(hashes) == 2
-    assert hashes[0] != hashes[1]
-    assert all(CREDENCIALES["password"] not in valor for valor in hashes)
+        estado_antes = tuple(sesion.connection().connection.driver_connection.iterdump())
+    respuesta = cliente.request(metodo, "/auth/registro",
+                                json={**CREDENCIALES, "usuario": "cuenta-no-autorizada"}, headers=cabeceras)
+    assert respuesta.status_code == 404
+    assert "/auth/registro" not in cliente.get("/openapi.json").json()["paths"]
+    with cliente.app.state.sesiones() as sesion:
+        assert tuple(sesion.connection().connection.driver_connection.iterdump()) == estado_antes
 
 
 def test_login_emite_jwt_y_rechaza_credenciales_invalidas(cliente):
@@ -39,7 +39,11 @@ def test_login_emite_jwt_y_rechaza_credenciales_invalidas(cliente):
         token, "secreto-exclusivo-de-pruebas-locales-123456", algorithms=["HS256"],
         issuer="rescuesync-cloud", audience="rescuesync-cloud",
     )
-    assert datos["sub"] == "1"
+    with cliente.app.state.sesiones() as sesion:
+        identificador = sesion.execute(
+            text("SELECT id FROM cuentas WHERE usuario = :usuario"), {"usuario": CREDENCIALES["usuario"]},
+        ).scalar_one()
+    assert datos["sub"] == str(identificador)
     assert datos["exp"] > datos["iat"]
     respuesta = cliente.post("/auth/login", json=CREDENCIALES)
     assert set(respuesta.json()) == {"access_token", "token_type", "expires_in"}
@@ -55,15 +59,6 @@ def test_login_emite_jwt_y_rechaza_credenciales_invalidas(cliente):
         assert "password" not in respuesta.text
 
 
-def test_registro_duplicado_rechaza_y_permite_otro_registro(cliente):
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 201
-    assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 409
-    assert cliente.post("/auth/registro", json={**CREDENCIALES, "usuario": "otra"}).status_code == 201
-    with cliente.app.state.sesiones() as sesion:
-        assert sesion.execute(text("SELECT count(*) FROM cuentas")).scalar_one() == 2
-
-
-@pytest.mark.parametrize("ruta", ["/auth/registro", "/auth/login"])
 @pytest.mark.parametrize("datos", [
     {"usuario": "", "password": "secreto-no-reflejar"},
     {"usuario": "  ", "password": "secreto-no-reflejar"},
@@ -75,8 +70,8 @@ def test_registro_duplicado_rechaza_y_permite_otro_registro(cliente):
     {"usuario": "integracion", "password": {"secreto-no-reflejar": "valor"}},
     {"usuario": "integracion", "password": "secreto-no-reflejar", "extra": "secreto-no-reflejar"},
 ])
-def test_validacion_auth_no_expone_credenciales(cliente, ruta, datos):
-    respuesta = cliente.post(ruta, json=datos)
+def test_validacion_auth_no_expone_credenciales(cliente, datos):
+    respuesta = cliente.post("/auth/login", json=datos)
     assert respuesta.status_code == 422
     assert "secreto-no-reflejar" not in respuesta.text
     for error in respuesta.json()["detail"]:
@@ -133,8 +128,13 @@ def test_guardia_jwt_ong_no_persiste_sin_token_valido(cliente, tipo):
     elif tipo == "invalido":
         cabeceras = {"Authorization": "Bearer invalido"}
     elif tipo in {"expirado", "algoritmo"}:
+        datos = jwt.decode(
+            cabeceras["Authorization"].removeprefix("Bearer "),
+            "secreto-exclusivo-de-pruebas-locales-123456", algorithms=["HS256"],
+            issuer="rescuesync-cloud", audience="rescuesync-cloud",
+        )
         token = jwt.encode(
-            {"sub": "1", "usuario": CREDENCIALES["usuario"], "iss": "rescuesync-cloud",
+            {"sub": datos["sub"], "usuario": CREDENCIALES["usuario"], "iss": "rescuesync-cloud",
              "aud": ["rescuesync-cloud", "rescuesync-backend"], "iat": ahora - timedelta(hours=2),
              "exp": ahora - timedelta(hours=1) if tipo == "expirado" else ahora + timedelta(hours=1)},
             "secreto-exclusivo-de-pruebas-locales-123456",
@@ -180,6 +180,6 @@ def test_documentacion_y_salud_sin_configuracion(monkeypatch):
         assert cliente.get("/docs").status_code == 200
         assert cliente.get("/openapi.json").status_code == 200
         assert cliente.get("/health").json() == {"status": "ok"}
-        assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 503
+        assert cliente.post("/auth/registro", json=CREDENCIALES).status_code == 404
         assert cliente.post("/auth/login", json=CREDENCIALES).status_code == 503
         assert cliente.post("/ongs/registro", json=ONG).status_code == 503
