@@ -95,6 +95,10 @@ def root():
     return RedirectResponse(url="/docs")
 
 
-@app.get("/health", tags=["health"])
+@app.get(
+    "/health",
+    tags=["health"],
+    responses={200: {"description": "Servicio disponible", "content": {"application/json": {"example": {"status": "ok"}}}}},
+)
 def health_check():
     return {"status": "ok"}

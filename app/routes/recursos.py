@@ -5,9 +5,10 @@ from app.dependencies import obtener_cuenta, obtener_sesion
 from app.dto.recursos import DisponibilidadResponse, DisponibilidadTipo, RespuestaBloqueo
 from app.schemas.recursos import SolicitudBloqueo
 from app.services.recursos_service import bloquear_recursos, calcular_disponibilidad
+from app.openapi_examples import ERROR_401, ERROR_422, ERROR_422_QUERY, ERROR_503
 
 
-router = APIRouter(dependencies=[Depends(obtener_cuenta)])
+router = APIRouter(dependencies=[Depends(obtener_cuenta)], responses={503: {"description": "Configuración o base no disponible", "content": {"application/json": {"example": ERROR_503}}}})
 
 EJEMPLOS_BLOQUEO = {
     "una_ong": {
@@ -87,7 +88,7 @@ EJEMPLOS_BLOQUEO = {
                 "detail": "La ONG 3 no tiene stock suficiente del item 101: solicitado 30, disponible 25",
             }}},
         },
-        422: {"description": "Request mal formado"},
+        422: {"description": "Request mal formado", "content": {"application/json": {"example": ERROR_422}}},
     },
 )
 def bloquear(
@@ -118,7 +119,9 @@ def bloquear(
                 ],
                 "mensaje": None
             }}}
-        }
+        },
+        401: {"description": "Token ausente o inválido", "content": {"application/json": {"example": ERROR_401}}},
+        422: {"description": "Filtros inválidos", "content": {"application/json": {"example": ERROR_422_QUERY}}},
     },
 )
 def disponibilidad(

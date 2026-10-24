@@ -5,8 +5,9 @@ from app.dependencies import obtener_cuenta, obtener_sesion
 from app.dto.emergencias import LiberacionResponseDTO
 from app.schemas.emergencias import LiberacionResponse
 from app.services.emergencias_service import liberar_emergencia
+from app.openapi_examples import ERROR_401, ERROR_422, ERROR_422_PATH, ERROR_503
 
-router = APIRouter(dependencies=[Depends(obtener_cuenta)], tags=["emergencias"])
+router = APIRouter(dependencies=[Depends(obtener_cuenta)], tags=["emergencias"], responses={503: {"description": "Configuración o base no disponible", "content": {"application/json": {"example": ERROR_503}}}})
 
 
 @router.post(
@@ -58,9 +59,9 @@ router = APIRouter(dependencies=[Depends(obtener_cuenta)], tags=["emergencias"])
         },
         401: {
             "description": "Token ausente o inválido",
-            "content": {"application/json": {"example": {"detail": "Credenciales inválidas"}}},
+            "content": {"application/json": {"example": ERROR_401}},
         },
-        422: {"description": "emergencia_id inválido"},
+        422: {"description": "emergencia_id inválido", "content": {"application/json": {"example": ERROR_422_PATH}}},
     },
 )
 def liberar_emergencia_endpoint(

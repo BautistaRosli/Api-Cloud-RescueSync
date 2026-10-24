@@ -6,6 +6,7 @@ from app.dependencies import obtener_configuracion, obtener_sesion
 from app.dto.auth import TokenAcceso
 from app.schemas.auth import Credenciales
 from app.services.auth_service import iniciar_sesion
+from app.openapi_examples import ERROR_422
 
 
 router = APIRouter()
@@ -48,6 +49,10 @@ EJEMPLO_LOGIN = {
             "content": {"application/json": {"example": {
                 "detail": "Configurar DATABASE_URL y JWT_SECRET para usar este servicio",
             }}},
+        },
+        422: {
+            "description": "Credenciales mal formadas",
+            "content": {"application/json": {"example": ERROR_422}},
         },
     },
 )

@@ -5,9 +5,10 @@ from app.dependencies import obtener_cuenta, obtener_sesion
 from app.dto.validaciones import RespuestaEvaluacion
 from app.schemas.validaciones import SolicitudEvaluacion
 from app.services.validaciones_service import evaluar_ofertas
+from app.openapi_examples import ERROR_401, ERROR_422, ERROR_503
 
 
-router = APIRouter(dependencies=[Depends(obtener_cuenta)])
+router = APIRouter(dependencies=[Depends(obtener_cuenta)], responses={503: {"description": "Configuración o base no disponible", "content": {"application/json": {"example": ERROR_503}}}})
 
 EJEMPLOS_SOLICITUD = {
     "consorcio": {
@@ -58,6 +59,11 @@ EJEMPLOS_SOLICITUD = {
         "la cobertura del lote y observaciones. En un consorcio la ONG responsable es PRINCIPAL y el resto "
         "APOYO_SECUNDARIO."
     ),
+    responses={
+        200: {"description": "Ofertas evaluadas", "content": {"application/json": {"example": {"emergencia_id": 12, "resultados": [{"oferta_id": 7, "lote_id": 3, "es_consorcio": True, "nivel_habilitacion": "COMPLETA", "cantidad_ofrecida": 50, "cantidad_verificada": 50, "cobertura_lote_pct": 100.0, "participantes": [{"ong_id": 1, "rol": "PRINCIPAL", "habilitada": True, "capacidades_habilitadas": [{"tipo_recurso_id": 101, "cantidad_ofrecida": 20, "cantidad_verificada": 20}]}], "observaciones": []}]}}}},
+        401: {"description": "Token ausente o inválido", "content": {"application/json": {"example": ERROR_401}}},
+        422: {"description": "Solicitud inválida", "content": {"application/json": {"example": ERROR_422}}},
+    },
 )
 def evaluar(
     solicitud: SolicitudEvaluacion = Body(openapi_examples=EJEMPLOS_SOLICITUD),

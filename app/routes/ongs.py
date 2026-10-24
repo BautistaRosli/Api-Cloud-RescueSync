@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends, Path
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 
@@ -9,17 +9,34 @@ from app.schemas.ong import RegistroOng, OngRespuesta
 from app.schemas.items import OngItemRespuesta
 from app.services.ongs_service import registrar_ong
 from app.models import ong_items
+from app.openapi_examples import ERROR_401, ERROR_422, ERROR_422_PATH, ERROR_503, ONG, error_404, error_409
 
-router = APIRouter(dependencies=[Depends(obtener_cuenta)])
+router = APIRouter(dependencies=[Depends(obtener_cuenta)], responses={503: {"description": "Configuración o base no disponible", "content": {"application/json": {"example": ERROR_503}}}})
 
 
-@router.post("/registro", response_model=OngCreada, status_code=201)
-def registro(datos: RegistroOng, db: Session = Depends(obtener_sesion)):
+@router.post(
+    "/registro", response_model=OngCreada, status_code=201,
+    responses={
+        201: {"description": "ONG registrada", "content": {"application/json": {"example": ONG}}},
+        401: {"description": "Token ausente o inválido", "content": {"application/json": {"example": ERROR_401}}},
+        409: {"description": "CUIT duplicado", "content": {"application/json": {"example": error_409("El CUIT ya está registrado")}}},
+        422: {"description": "Datos inválidos", "content": {"application/json": {"example": ERROR_422}}},
+    },
+)
+def registro(datos: RegistroOng = Body(example={"cuit": "30712345678", "razon_social": "Cruz Roja Argentina", "email": "contacto@cruzroja.org.ar"}), db: Session = Depends(obtener_sesion)):
     return registrar_ong(db, datos)
 
 
-@router.get("/{ong_id}", response_model=OngRespuesta)
-def obtener_ong(ong_id: int, db: Session = Depends(obtener_sesion)):
+@router.get(
+    "/{ong_id}", response_model=OngRespuesta,
+    responses={
+        200: {"description": "ONG encontrada", "content": {"application/json": {"example": {**ONG, "items": [{"item_id": 101, "cantidad": 25, "item": {"id": 101, "nombre": "Paramédicos", "descripcion": "Personal de atención médica"}}]}}}},
+        401: {"description": "Token ausente o inválido", "content": {"application/json": {"example": ERROR_401}}},
+        404: {"description": "ONG inexistente", "content": {"application/json": {"example": error_404("ONG no encontrada")}}},
+        422: {"description": "ID inválido", "content": {"application/json": {"example": ERROR_422_PATH}}},
+    },
+)
+def obtener_ong(ong_id: int = Path(..., ge=1, example=1), db: Session = Depends(obtener_sesion)):
     ong = db.execute(
         select(Ong)
         .options(selectinload(Ong.items))
