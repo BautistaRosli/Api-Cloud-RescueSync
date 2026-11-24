@@ -6,6 +6,11 @@ from app.seed import poblar_base_datos
 
 
 def iniciar_base_datos(database_url: str, ejecutar_seed: bool = True):
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        
     motor = create_engine(database_url, pool_pre_ping=True)
     try:
         Base.metadata.create_all(motor)
